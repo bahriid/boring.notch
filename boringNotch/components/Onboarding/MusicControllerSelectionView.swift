@@ -130,6 +130,8 @@ extension MediaControllerType {
             return "Connects directly to the Apple Music app."
         case .youtubeMusic:
             return "Requires a third-party client with API plugin enabled."
+        case .feishin:
+            return "Connects to Feishin's remote control, with synced lyrics from Navidrome."
         }
     }
 }

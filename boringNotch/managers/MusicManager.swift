@@ -51,6 +51,7 @@ class MusicManager: ObservableObject {
     @Published var currentLyrics: String = ""
     @Published var isFetchingLyrics: Bool = false
     @Published var syncedLyrics: [(time: Double, text: String)] = []
+    @Published var currentLyricLine: String = ""
     @Published var canFavoriteTrack: Bool = false
     @Published var isFavoriteTrack: Bool = false
 
@@ -75,6 +76,11 @@ class MusicManager: ObservableObject {
             .sink { [weak self] _ in
                 self?.setActiveControllerBasedOnPreference()
             }
+            .store(in: &cancellables)
+
+        // The closed notch shows the current synced line; re-check it a few times a second.
+        Timer.publish(every: 0.2, on: .main, in: .common).autoconnect()
+            .sink { [weak self] _ in self?.updateLyricLine() }
             .store(in: &cancellables)
 
         // Initialize deprecation check asynchronously
@@ -131,6 +137,8 @@ class MusicManager: ObservableObject {
             newController = SpotifyController()
         case .youtubeMusic:
             newController = YouTubeMusicController()
+        case .feishin:
+            newController = FeishinController()
         }
 
         // Set up state observation for the new controller
@@ -350,6 +358,19 @@ class MusicManager: ObservableObject {
             return
         }
 
+        // Feishin: synced lyrics straight from Navidrome, never a web guess
+        if let feishin = activeController as? FeishinController {
+            Task { @MainActor in
+                self.isFetchingLyrics = true
+                let lines = await feishin.syncedLyrics()
+                guard self.songTitle == title else { return } // song changed while fetching
+                self.syncedLyrics = lines
+                self.currentLyrics = lines.map(\.text).joined(separator: "\n")
+                self.isFetchingLyrics = false
+            }
+            return
+        }
+
         // Prefer native Apple Music lyrics when available
         if let bundleIdentifier = bundleIdentifier, bundleIdentifier.contains("com.apple.Music") {
             Task { @MainActor in
@@ -504,6 +525,19 @@ class MusicManager: ObservableObject {
             }
         }
         return syncedLyrics[idx].text
+    }
+
+    private func updateLyricLine() {
+        var line = ""
+        if let first = syncedLyrics.first {
+            let elapsed = isPlaying
+                ? elapsedTime + Date().timeIntervalSince(timestampDate) * playbackRate
+                : elapsedTime
+            if elapsed >= first.time { line = lyricLine(at: elapsed) }
+        }
+        guard line != currentLyricLine else { return }
+        // Animated here so the notch resizes along with the text swap.
+        withAnimation(.smooth(duration: 0.45)) { currentLyricLine = line }
     }
 
     private func triggerFlipAnimation() {

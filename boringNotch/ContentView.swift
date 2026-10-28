@@ -387,6 +387,28 @@ struct ContentView: View {
 
     @ViewBuilder
     func MusicLiveActivity() -> some View {
+        VStack(spacing: 0) {
+            MusicLiveActivityRow()
+            if !musicManager.currentLyricLine.isEmpty {
+                Text(musicManager.currentLyricLine)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(
+                        Defaults[.coloredSpectrogram]
+                            ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.7)
+                            : Color.white
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+                    .id(musicManager.currentLyricLine)
+                    .transition(.blurReplace)
+            }
+        }
+    }
+
+    @ViewBuilder
+    func MusicLiveActivityRow() -> some View {
         HStack {
             Image(nsImage: musicManager.albumArt)
                 .resizable()
